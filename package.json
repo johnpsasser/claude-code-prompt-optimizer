@@ -1,0 +1,42 @@
+{
+  "name": "claude-code-prompt-optimizer",
+  "version": "1.0.0",
+  "description": "AI-powered prompt optimization hook for Claude Code using Claude Opus 4.1",
+  "type": "module",
+  "main": "src/hooks/optimize-prompt.ts",
+  "scripts": {
+    "install-hook": "node scripts/install.js",
+    "test": "tsx src/hooks/optimize-prompt.ts < examples/test-input.json",
+    "test:debug": "DEBUG=true bash src/hooks/optimize-prompt.sh < examples/test-input.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnpsasser/claude-code-prompt-optimizer.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "prompt-optimization",
+    "ai",
+    "anthropic",
+    "opus-4.1",
+    "hooks"
+  ],
+  "author": "John P. Sasser",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/johnpsasser/claude-code-prompt-optimizer/issues"
+  },
+  "homepage": "https://github.com/johnpsasser/claude-code-prompt-optimizer#readme",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

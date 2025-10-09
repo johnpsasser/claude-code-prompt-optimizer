@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "UserPromptSubmit": {
+      "type": "command",
+      "command": "/Users/YOUR_USERNAME/projects/claude-code-prompt-optimizer/src/hooks/optimize-prompt.sh"
+    }
+  },
+  "_comment": "Replace YOUR_USERNAME with your actual username. You can find the correct path by running: echo $HOME/projects/claude-code-prompt-optimizer/src/hooks/optimize-prompt.sh"
+}

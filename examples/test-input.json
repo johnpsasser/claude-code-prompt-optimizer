@@ -1,0 +1,6 @@
+{
+  "prompt": "<optimize> create a user authentication system with JWT tokens",
+  "session_id": "example-session-001",
+  "transcript_path": "/tmp/claude-transcript",
+  "hook_event_name": "UserPromptSubmit"
+}
