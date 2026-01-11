@@ -1,50 +1,47 @@
-# 🧠 Claude Code Prompt Optimizer
+# Claude Code Prompt Optimizer
+
+![Claude Code Prompt Optimizer](./assets/header.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green)](https://nodejs.org)
 [![Anthropic API](https://img.shields.io/badge/Anthropic-Claude%20Opus%204.1-blue)](https://www.anthropic.com)
 
-Transform simple prompts into comprehensive, structured instructions using Claude Opus 4.1's advanced reasoning capabilities. This hook automatically optimizes your prompts when you add the `<optimize>` tag, enhancing them with structured frameworks, specific requirements, and meta-instructions for maximum AI performance.
+A Claude Code hook that transforms simple prompts into detailed, structured instructions. Add `<optimize>` to any prompt and it'll expand your request into something Claude can really sink its teeth into.
 
-## ✨ Features
+## What It Does
 
-- **🚀 Automatic Optimization**: Add `<optimize>` to any prompt to trigger intelligent enhancement
-- **🎯 Structured Frameworks**: Transforms vague requests into detailed, actionable tasks
-- **🧠 UltraThink Mode**: Leverages Claude Opus 4.1's extended thinking capabilities (10,000 token budget)
-- **📝 Context Preservation**: Maintains quoted text and specific instructions unchanged
-- **🔍 Visual Feedback**: Shows before/after comparison in the terminal
-- **⚡ Fast Integration**: Simple installation with Claude Code's hook system
-- **🐛 Debug Mode**: Optional logging for troubleshooting
+When you tag a prompt with `<optimize>`, this hook intercepts it and runs it through Claude Opus 4.1's extended thinking mode. The result is a fleshed-out version of your original request with:
 
-## 📋 Prerequisites
+- Specific implementation steps
+- Error handling considerations
+- Testing requirements
+- Edge cases to watch for
 
-- **Claude Code** CLI installed and configured
-- **Node.js** 18.0.0 or higher
-- **Anthropic API Key** with access to Claude Opus 4.1
+Basically, it does the prompt engineering for you.
 
-## 🚀 Quick Start
+## Requirements
 
-### 1. Clone and Install
+- Claude Code CLI
+- Node.js 18+
+- Anthropic API key with Opus access
+
+## Setup
+
+Clone and install:
 
 ```bash
-# Clone the repository
 git clone https://github.com/johnpsasser/claude-code-prompt-optimizer.git
 cd claude-code-prompt-optimizer
-
-# Install dependencies
 npm install
 ```
 
-### 2. Set Up Your API Key
+Add your API key to your shell profile:
 
 ```bash
-# Add to your shell profile (.bashrc, .zshrc, etc.)
 export ANTHROPIC_API_KEY="your-api-key-here"
 ```
 
-### 3. Configure Claude Code Hook
-
-Create or update `~/.config/claude-code/settings.json`:
+Add the hook to `~/.config/claude-code/settings.json`:
 
 ```json
 {
@@ -57,205 +54,94 @@ Create or update `~/.config/claude-code/settings.json`:
 }
 ```
 
-### 4. Test the Installation
+Test it:
 
-```bash
-# In Claude Code, type:
+```
 <optimize> write a function to calculate fibonacci numbers
 ```
 
-## 📖 Detailed Setup Guide
+For detailed setup instructions and troubleshooting, see [QUICKSTART.md](QUICKSTART.md).
 
-See [QUICKSTART.md](QUICKSTART.md) for step-by-step installation instructions with troubleshooting tips.
+## Examples
 
-## 🎯 Usage Examples
-
-### Basic Optimization
-
-**Input:**
+**Before:**
 ```
 <optimize> create a REST API
 ```
 
-**Output:**
-The optimizer transforms this into a comprehensive specification with:
-- Detailed architectural requirements
-- Step-by-step implementation phases
-- Error handling specifications
-- Security considerations
-- Testing requirements
-- Documentation guidelines
+**After:**
+The optimizer expands this into specs covering architecture, endpoints, error handling, auth, validation, and testing.
 
-### Complex Task Planning
-
-**Input:**
+**Before:**
 ```
 <optimize> refactor this codebase for better performance
 ```
 
-**Output:**
-Structured plan including:
-- Performance audit methodology
-- Bottleneck identification strategies
-- Refactoring priorities
-- Benchmarking requirements
-- Rollback procedures
-- Success metrics
+**After:**
+You get a structured plan with profiling steps, bottleneck identification, prioritized refactoring targets, and benchmarking criteria.
 
-## 🔧 Configuration Options
-
-### Environment Variables
+## Configuration
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key | Required |
 | `DEBUG` | Enable debug logging | `false` |
 
-### Debug Mode
+Debug logs go to `/tmp/claude-code-hook-debug.log`.
 
-Enable detailed logging:
-
-```bash
-export DEBUG=true
-# Check logs at /tmp/claude-code-hook-debug.log
-```
-
-## 🏗️ Architecture
+## Project Structure
 
 ```
 claude-code-prompt-optimizer/
-├── src/
-│   └── hooks/
-│       ├── optimize-prompt.ts    # Core optimization logic
-│       └── optimize-prompt.sh    # Shell wrapper
-├── examples/                      # Usage examples
-├── docs/                          # Additional documentation
-├── package.json                   # Node.js dependencies
-├── tsconfig.json                  # TypeScript configuration
-├── README.md                      # This file
-└── QUICKSTART.md                  # Installation guide
+├── src/hooks/
+│   ├── optimize-prompt.ts    # Core optimization logic
+│   └── optimize-prompt.sh    # Shell wrapper
+├── examples/                  # Usage examples
+├── docs/                      # Additional documentation
+└── QUICKSTART.md             # Installation guide
 ```
 
-## 🧪 Testing
+## How It Works
 
-Test the hook manually:
+1. Hook watches for `<optimize>` in your input
+2. Sends your prompt to Claude Opus 4.1 with a 10,000 token thinking budget
+3. Returns the expanded prompt back to Claude Code
 
-```bash
-# Create test input
-echo '{"prompt": "<optimize> test prompt", "session_id": "test", "transcript_path": "/tmp/test", "hook_event_name": "UserPromptSubmit"}' > test-input.json
+Takes about 2-5 seconds.
 
-# Run test
-npm test
-```
-
-## 🤝 How It Works
-
-1. **Trigger Detection**: The hook monitors for the `<optimize>` tag in your prompts
-2. **Prompt Analysis**: Sends your prompt to Claude Opus 4.1 with specialized optimization instructions
-3. **Enhancement**: Claude transforms the prompt using:
-   - Structured reasoning frameworks
-   - Specific, actionable requirements
-   - Meta-instructions for complex problem-solving
-4. **Response**: Returns the optimized prompt to Claude Code for execution
-
-## 📊 Performance
-
-- **Optimization Time**: 2-5 seconds average
-- **Token Usage**: Up to 16,384 output tokens + 10,000 thinking tokens
-- **Success Rate**: 95%+ with valid API key and network connection
-
-## 🐛 Troubleshooting
-
-### Common Issues
+## Troubleshooting
 
 **Hook not triggering:**
-- Verify settings.json path is correct
-- Check file permissions: `chmod +x src/hooks/optimize-prompt.sh`
-- Enable debug mode and check logs
+- Check your settings.json path
+- Run `chmod +x src/hooks/optimize-prompt.sh`
+- Enable debug mode and check the logs
 
-**API Key issues:**
-- Ensure `ANTHROPIC_API_KEY` is exported
-- Verify key has access to Claude Opus 4.1
-- Check key hasn't exceeded rate limits
+**API errors:**
+- Make sure `ANTHROPIC_API_KEY` is exported
+- Verify you have Opus access
+- Check rate limits
 
-**Dependencies missing:**
-- Run `npm install` in the project directory
-- Ensure Node.js version is 18.0.0 or higher
+**Missing deps:**
+- Run `npm install`
+- Check Node version is 18+
 
-See [QUICKSTART.md](QUICKSTART.md#troubleshooting) for more solutions.
-
-## 🛠️ Development
-
-### Running Locally
+## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Run TypeScript directly
+# Run directly
 npx tsx src/hooks/optimize-prompt.ts < test-input.json
 
-# Run with debug wrapper
+# Run with debug output
 DEBUG=true bash src/hooks/optimize-prompt.sh < test-input.json
-```
 
-### Building
-
-```bash
-# Compile TypeScript
+# Compile
 npx tsc
-
-# Output in ./dist directory
 ```
 
-## 📝 Examples
+## Contributing
 
-Check the `/examples` directory for:
-- Sample input/output pairs
-- Configuration templates
-- Integration patterns
-- Advanced use cases
+PRs welcome. Fork it, make a branch, add tests, submit.
 
-## 🤝 Contributing
+## License
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
-
-## 🔒 Security
-
-- API keys are never logged or stored
-- All prompt data stays local
-- Network requests only to official Anthropic API
-- No telemetry or analytics
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built for [Claude Code](https://claude.com/claude-code) by Anthropic
-- Powered by Claude Opus 4.1's advanced reasoning capabilities
-- Inspired by the AI development community
-
-## 📮 Support
-
-- **Issues**: [GitHub Issues](https://github.com/johnpsasser/claude-code-prompt-optimizer/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/johnpsasser/claude-code-prompt-optimizer/discussions)
-
-## 🚀 Roadmap
-
-- [ ] Support for multiple optimization styles
-- [ ] Custom optimization templates
-- [ ] Batch prompt optimization
-- [ ] Web UI for configuration
-- [ ] Integration with other AI models
-- [ ] Prompt history and analytics
-
----
-
-**Made with 🧠 by the AI development community**
+MIT. See [LICENSE](LICENSE).
