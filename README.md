@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green)](https://nodejs.org)
-[![Anthropic API](https://img.shields.io/badge/Anthropic-Claude%20Opus%204.5-blue)](https://www.anthropic.com)
+[![Anthropic API](https://img.shields.io/badge/Anthropic-Claude%20Opus%204.6-blue)](https://www.anthropic.com)
 
 A Claude Code hook that transforms simple prompts into detailed, structured instructions. Add `<optimize>` to any prompt and it'll expand your request into something Claude can really sink its teeth into.
 
@@ -144,7 +144,7 @@ claude-code-prompt-optimizer/
 3. Returns the expanded prompt back to Claude Code
 
 Authentication flow:
-- If `ANTHROPIC_API_KEY` is set, uses Anthropic SDK (Opus 4.5 with extended thinking)
+- If `ANTHROPIC_API_KEY` is set, uses Anthropic SDK (Opus 4.6 with extended thinking)
 - If API fails or no key, falls back to Claude CLI (uses OAuth from Claude MAX)
 
 Takes about 2-5 seconds with API key, 5-15 seconds with CLI mode.
