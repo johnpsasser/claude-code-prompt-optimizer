@@ -1,6 +1,6 @@
 {
   "name": "claude-code-prompt-optimizer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-powered prompt optimization hook for Claude Code using Claude Opus 4.6 - supports API key and OAuth/Claude MAX",
   "type": "module",
   "main": "src/hooks/optimize-prompt.ts",

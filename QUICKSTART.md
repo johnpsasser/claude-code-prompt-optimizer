@@ -39,7 +39,7 @@ npm list @anthropic-ai/sdk tsx
 
 Expected output:
 ```
-claude-code-prompt-optimizer@1.1.0
+claude-code-prompt-optimizer@1.2.0
 ├── @anthropic-ai/sdk@0.36.0
 └── tsx@4.19.0
 ```
