@@ -34,17 +34,27 @@ Return ONLY the optimized prompt text, nothing else. Do not add preamble like "H
 /**
  * Resolve auth environment for the Agent SDK subprocess.
  *
+ * When running as a hook inside Claude Code (CLAUDECODE is set), stored OAuth
+ * from `claude login` is guaranteed to work — strip the API key since it may
+ * be stale or invalid. For standalone usage, keep the API key for non-MAX users.
+ *
  * Priority:
- *   1. CLAUDE_CODE_OAUTH_TOKEN → use OAuth, strip API key to avoid conflicts
- *   2. ANTHROPIC_API_KEY → pass through for API-key-only users
- *   3. Neither → Agent SDK falls back to stored OAuth from `claude login`
+ *   1. CLAUDE_CODE_OAUTH_TOKEN → use OAuth, strip API key
+ *   2. Inside Claude Code hook → strip API key, use stored OAuth
+ *   3. ANTHROPIC_API_KEY (standalone only) → pass through
+ *   4. Neither → Agent SDK falls back to stored OAuth from `claude login`
  */
 function resolveAuth(): void {
+  // Detect if we're running inside a Claude Code session before clearing the flag
+  const insideClaudeCode = !!process.env.CLAUDECODE;
+
   // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
   delete process.env.CLAUDECODE;
 
-  // If OAuth token is set, remove API key so the subprocess uses OAuth
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  // Strip API key when OAuth should be used instead:
+  // - Explicit OAuth token set, OR
+  // - Running as a hook inside Claude Code (stored OAuth is available)
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN || insideClaudeCode) {
     delete process.env.ANTHROPIC_API_KEY;
   }
 }
