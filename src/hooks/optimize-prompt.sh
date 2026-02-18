@@ -8,8 +8,8 @@ if [ "$DEBUG" = "true" ]; then
   LOG_FILE="/tmp/claude-code-hook-debug.log"
   echo "=== Hook called at $(date) ===" >> "$LOG_FILE"
   echo "Working directory: $(pwd)" >> "$LOG_FILE"
+  echo "CLAUDE_CODE_OAUTH_TOKEN set: ${CLAUDE_CODE_OAUTH_TOKEN:+yes}" >> "$LOG_FILE"
   echo "ANTHROPIC_API_KEY set: ${ANTHROPIC_API_KEY:+yes}" >> "$LOG_FILE"
-  echo "ANTHROPIC_OAUTH_TOKEN set: ${ANTHROPIC_OAUTH_TOKEN:+yes}" >> "$LOG_FILE"
 fi
 
 # Navigate to the hook directory

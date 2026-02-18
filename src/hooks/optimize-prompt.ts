@@ -32,18 +32,22 @@ Transform the prompt to enable maximum reasoning depth. Make it comprehensive, s
 Return ONLY the optimized prompt text, nothing else. Do not add preamble like "Here is the optimized prompt:" or any other commentary.`;
 
 /**
- * Resolve auth environment: OAuth token takes priority over API key.
- * If ANTHROPIC_OAUTH_TOKEN is set, remove ANTHROPIC_API_KEY so the
- * Agent SDK uses OAuth. If neither is set, the SDK falls back to
- * stored OAuth from `claude login`.
+ * Resolve auth environment for the Agent SDK subprocess.
+ *
+ * The Agent SDK spawns a `claude` subprocess. That subprocess authenticates via:
+ *   1. CLAUDE_CODE_OAUTH_TOKEN env var (OAuth token)
+ *   2. Stored OAuth from `claude login`
+ *
+ * ANTHROPIC_API_KEY must be removed — when running as a hook inside Claude Code,
+ * the parent session injects an API key that is invalid for direct use by the
+ * subprocess, causing "Invalid API key" errors.
  */
 function resolveAuth(): void {
   // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
   delete process.env.CLAUDECODE;
 
-  if (process.env.ANTHROPIC_OAUTH_TOKEN) {
-    delete process.env.ANTHROPIC_API_KEY;
-  }
+  // Always remove API key — Agent SDK should use OAuth only
+  delete process.env.ANTHROPIC_API_KEY;
 }
 
 async function optimizePrompt(originalPrompt: string): Promise<string> {

@@ -24,8 +24,7 @@ Basically, it does the prompt engineering for you.
 - Claude Code CLI installed
 - Node.js 18+
 - **One of the following:**
-  - `ANTHROPIC_OAUTH_TOKEN` (Claude Pro/MAX subscribers)
-  - `ANTHROPIC_API_KEY` (API credit users)
+  - `CLAUDE_CODE_OAUTH_TOKEN` (Claude Pro/MAX subscribers)
   - Stored OAuth from `claude login`
 
 ## Quick Install
@@ -40,31 +39,26 @@ The installer handles dependencies, auth setup, hook configuration, and verifica
 
 ## Authentication
 
-The optimizer checks for credentials in this order:
+The Agent SDK authenticates via OAuth. It checks in this order:
 
 | Priority | Method | Variable | Best For |
 |----------|--------|----------|----------|
-| 1 | OAuth token | `ANTHROPIC_OAUTH_TOKEN` | Claude Pro/MAX subscribers |
-| 2 | API key | `ANTHROPIC_API_KEY` | API credit users |
-| 3 | Stored OAuth | *(none — uses `claude login`)* | Already logged in |
+| 1 | OAuth token | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Pro/MAX subscribers |
+| 2 | Stored OAuth | *(none — uses `claude login`)* | Already logged in |
 
-If `ANTHROPIC_OAUTH_TOKEN` is set, the API key is ignored. If neither env var is set, the Agent SDK falls back to stored OAuth credentials from `claude login`.
+If you're logged into Claude Code (`claude login`), no env var is needed — the Agent SDK uses your stored credentials automatically.
 
-### Setting Up OAuth Token
+### Setting Up OAuth Token (Optional)
 
 ```bash
 # Get your token
 claude auth token
 
 # Add to shell profile
-export ANTHROPIC_OAUTH_TOKEN="your-oauth-token"
+export CLAUDE_CODE_OAUTH_TOKEN="your-oauth-token"
 ```
 
-### Setting Up API Key
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-api03-..."
-```
+> **Note:** `ANTHROPIC_API_KEY` is not used with the Agent SDK. The optimizer always authenticates via OAuth.
 
 ## Manual Setup
 
@@ -139,8 +133,7 @@ You get a structured plan with profiling steps, bottleneck identification, prior
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ANTHROPIC_OAUTH_TOKEN` | OAuth token for Claude Pro/MAX | - |
-| `ANTHROPIC_API_KEY` | Anthropic API key (used if no OAuth token) | - |
+| `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token for Claude Pro/MAX (optional if logged in) | - |
 | `DEBUG` | Enable debug logging | `false` |
 
 Debug logs go to `/tmp/claude-code-hook-debug.log`.
@@ -175,8 +168,8 @@ The optimizer uses the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) which
 - Enable debug mode and check the logs
 
 **Auth errors:**
-- Check that `ANTHROPIC_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` is exported
-- If using stored OAuth, verify `claude login` works
+- Verify `claude login` works (stored OAuth)
+- Or check that `CLAUDE_CODE_OAUTH_TOKEN` is exported
 - Run with `DEBUG=true` to see which auth method is active
 
 **Missing deps:**

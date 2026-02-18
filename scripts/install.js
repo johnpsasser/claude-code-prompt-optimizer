@@ -94,38 +94,29 @@ function appendToProfile(line) {
 
 async function setupAuth(hasClaude) {
   console.log('\n--- Authentication Setup ---\n');
+  console.log('The Agent SDK authenticates via OAuth.\n');
   console.log('Choose your auth method:\n');
-  console.log('  1) OAuth token  (Claude Pro / MAX subscribers)');
-  console.log('  2) API key      (Anthropic API credits)');
   if (hasClaude) {
-    console.log('  3) Stored OAuth (already logged in via `claude login`)');
+    console.log('  1) Stored OAuth (already logged in via `claude login`) [recommended]');
   }
+  console.log('  2) OAuth token  (Claude Pro / MAX subscribers)');
   console.log('');
 
-  const choice = await ask('Enter choice [1/2/3]: ');
+  const choice = await ask(`Enter choice [${hasClaude ? '1/2' : '2'}]: `);
 
-  if (choice === '1') {
+  if (choice === '1' && hasClaude) {
+    success('Using stored OAuth from `claude login` — no env vars needed');
+  } else if (choice === '2') {
     console.log('\nTo get your OAuth token, run:\n  claude auth token\n');
     const token = await ask('Paste your OAuth token (or press Enter to skip): ');
     if (token) {
-      appendToProfile(`export ANTHROPIC_OAUTH_TOKEN="${token}"`);
-      process.env.ANTHROPIC_OAUTH_TOKEN = token;
+      appendToProfile(`export CLAUDE_CODE_OAUTH_TOKEN="${token}"`);
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
     } else {
-      warn('Skipped — set ANTHROPIC_OAUTH_TOKEN manually later');
+      warn('Skipped — set CLAUDE_CODE_OAUTH_TOKEN manually later');
     }
-  } else if (choice === '2') {
-    const key = await ask('Paste your API key (sk-ant-...): ');
-    if (!key.startsWith('sk-ant-')) {
-      warn('Key does not start with sk-ant- — double-check it');
-    }
-    if (key) {
-      appendToProfile(`export ANTHROPIC_API_KEY="${key}"`);
-      process.env.ANTHROPIC_API_KEY = key;
-    }
-  } else if (choice === '3' && hasClaude) {
-    success('Using stored OAuth from `claude login` — no env vars needed');
   } else {
-    warn('No auth configured — set ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY later');
+    warn('No auth configured — run `claude login` or set CLAUDE_CODE_OAUTH_TOKEN later');
   }
 }
 
