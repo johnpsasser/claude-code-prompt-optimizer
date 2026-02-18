@@ -3,6 +3,10 @@
 # Claude Code Hook Wrapper Script
 # This script serves as the entry point for the prompt optimization hook
 
+# Ensure nvm/node is in PATH (Claude Code spawns hooks without interactive shell)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+
 # Optional: Enable debug logging
 if [ "$DEBUG" = "true" ]; then
   LOG_FILE="/tmp/claude-code-hook-debug.log"
