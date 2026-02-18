@@ -94,15 +94,15 @@ function appendToProfile(line) {
 
 async function setupAuth(hasClaude) {
   console.log('\n--- Authentication Setup ---\n');
-  console.log('The Agent SDK authenticates via OAuth.\n');
   console.log('Choose your auth method:\n');
   if (hasClaude) {
     console.log('  1) Stored OAuth (already logged in via `claude login`) [recommended]');
   }
   console.log('  2) OAuth token  (Claude Pro / MAX subscribers)');
+  console.log('  3) API key      (Anthropic API credits)');
   console.log('');
 
-  const choice = await ask(`Enter choice [${hasClaude ? '1/2' : '2'}]: `);
+  const choice = await ask(`Enter choice [${hasClaude ? '1/2/3' : '2/3'}]: `);
 
   if (choice === '1' && hasClaude) {
     success('Using stored OAuth from `claude login` — no env vars needed');
@@ -114,6 +114,15 @@ async function setupAuth(hasClaude) {
       process.env.CLAUDE_CODE_OAUTH_TOKEN = token;
     } else {
       warn('Skipped — set CLAUDE_CODE_OAUTH_TOKEN manually later');
+    }
+  } else if (choice === '3') {
+    const key = await ask('Paste your API key (sk-ant-...): ');
+    if (key && !key.startsWith('sk-ant-')) {
+      warn('Key does not start with sk-ant- — double-check it');
+    }
+    if (key) {
+      appendToProfile(`export ANTHROPIC_API_KEY="${key}"`);
+      process.env.ANTHROPIC_API_KEY = key;
     }
   } else {
     warn('No auth configured — run `claude login` or set CLAUDE_CODE_OAUTH_TOKEN later');

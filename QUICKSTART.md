@@ -30,6 +30,7 @@ Before starting, ensure you have:
 - npm or yarn package manager
 - **One of the following:**
   - `CLAUDE_CODE_OAUTH_TOKEN` (Claude Pro/MAX subscribers), OR
+  - `ANTHROPIC_API_KEY` (API credit users), OR
   - Stored OAuth from `claude login`
 
 ## Step-by-Step Installation
@@ -109,9 +110,28 @@ echo 'export CLAUDE_CODE_OAUTH_TOKEN="your-oauth-token"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-**Auth priority:** `CLAUDE_CODE_OAUTH_TOKEN` env var > stored OAuth from `claude login`.
+#### Option C: API Key (For API Credit Users)
 
-> **Note:** `ANTHROPIC_API_KEY` is not used with the Agent SDK. The optimizer always authenticates via OAuth.
+**Quick Test (Current Session Only):**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-api03-..."
+```
+
+**Permanent (Add to Shell Profile):**
+
+For **zsh** (default on macOS):
+```bash
+echo 'export ANTHROPIC_API_KEY="sk-ant-api03-..."' >> ~/.zshrc
+source ~/.zshrc
+```
+
+For **bash**:
+```bash
+echo 'export ANTHROPIC_API_KEY="sk-ant-api03-..."' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Auth priority:** `CLAUDE_CODE_OAUTH_TOKEN` > `ANTHROPIC_API_KEY` > stored OAuth from `claude login`.
 
 ### Step 4: Configure Claude Code Hook
 
@@ -275,13 +295,13 @@ ls -la src/hooks/optimize-prompt.sh
 
 **Error:** "Invalid API key" or auth-related failures
 
-The Agent SDK uses OAuth only. Check your auth:
+Check which auth is active:
 ```bash
 echo "OAuth token: ${CLAUDE_CODE_OAUTH_TOKEN:+set}"
-claude --version  # Verify CLI is installed
+echo "API key: ${ANTHROPIC_API_KEY:+set}"
 ```
 
-If `CLAUDE_CODE_OAUTH_TOKEN` is not set, ensure `claude login` has been run successfully. The SDK will use your stored login credentials.
+If neither is set, ensure `claude login` has been run successfully. The SDK will use your stored login credentials.
 
 ### Node.js Issues
 

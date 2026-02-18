@@ -34,20 +34,19 @@ Return ONLY the optimized prompt text, nothing else. Do not add preamble like "H
 /**
  * Resolve auth environment for the Agent SDK subprocess.
  *
- * The Agent SDK spawns a `claude` subprocess. That subprocess authenticates via:
- *   1. CLAUDE_CODE_OAUTH_TOKEN env var (OAuth token)
- *   2. Stored OAuth from `claude login`
- *
- * ANTHROPIC_API_KEY must be removed — when running as a hook inside Claude Code,
- * the parent session injects an API key that is invalid for direct use by the
- * subprocess, causing "Invalid API key" errors.
+ * Priority:
+ *   1. CLAUDE_CODE_OAUTH_TOKEN → use OAuth, strip API key to avoid conflicts
+ *   2. ANTHROPIC_API_KEY → pass through for API-key-only users
+ *   3. Neither → Agent SDK falls back to stored OAuth from `claude login`
  */
 function resolveAuth(): void {
   // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
   delete process.env.CLAUDECODE;
 
-  // Always remove API key — Agent SDK should use OAuth only
-  delete process.env.ANTHROPIC_API_KEY;
+  // If OAuth token is set, remove API key so the subprocess uses OAuth
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    delete process.env.ANTHROPIC_API_KEY;
+  }
 }
 
 async function optimizePrompt(originalPrompt: string): Promise<string> {
