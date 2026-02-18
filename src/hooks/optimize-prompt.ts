@@ -38,6 +38,9 @@ Return ONLY the optimized prompt text, nothing else. Do not add preamble like "H
  * stored OAuth from `claude login`.
  */
 function resolveAuth(): void {
+  // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
+  delete process.env.CLAUDECODE;
+
   if (process.env.ANTHROPIC_OAUTH_TOKEN) {
     delete process.env.ANTHROPIC_API_KEY;
   }
@@ -53,14 +56,20 @@ async function optimizePrompt(originalPrompt: string): Promise<string> {
       systemPrompt: OPTIMIZATION_SYSTEM_PROMPT,
       maxTurns: 1,
       allowedTools: [],
+      permissionMode: 'bypassPermissions',
     },
   });
 
   let result = '';
-  for await (const msg of q) {
-    if (msg.type === 'result') {
-      result = msg.result;
+  try {
+    for await (const msg of q) {
+      if (msg.type === 'result') {
+        result = msg.result;
+      }
     }
+  } catch {
+    // If we already got a result, use it even if the process exited uncleanly
+    if (!result) throw new Error('Agent SDK query failed before returning a result');
   }
 
   return result.trim() || originalPrompt;
