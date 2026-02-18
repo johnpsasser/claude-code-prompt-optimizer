@@ -2,6 +2,26 @@
 
 Get the prompt optimizer running in under 5 minutes!
 
+## Automated Install (Recommended)
+
+The fastest way to get started:
+
+```bash
+git clone https://github.com/johnpsasser/claude-code-prompt-optimizer.git
+cd claude-code-prompt-optimizer
+npm run install-hook
+```
+
+The installer will:
+1. Check prerequisites (Node.js, Claude CLI)
+2. Install dependencies
+3. Walk you through auth setup
+4. Configure the hook in `~/.claude/settings.json`
+5. Set file permissions
+6. Run a quick verification
+
+If you prefer manual setup, continue below.
+
 ## Pre-flight Checklist
 
 Before starting, ensure you have:
@@ -9,8 +29,9 @@ Before starting, ensure you have:
 - Node.js 18.0.0+ (`node --version`)
 - npm or yarn package manager
 - **One of the following:**
-  - Anthropic API key with Claude Opus access, OR
-  - Claude MAX subscription (logged into Claude Code)
+  - `ANTHROPIC_OAUTH_TOKEN` (Claude Pro/MAX subscribers), OR
+  - Anthropic API key with Claude access, OR
+  - Stored OAuth from `claude login`
 
 ## Step-by-Step Installation
 
@@ -34,13 +55,13 @@ cd claude-code-prompt-optimizer
 npm install
 
 # Verify installation
-npm list @anthropic-ai/sdk tsx
+npm list @anthropic-ai/claude-agent-sdk tsx
 ```
 
 Expected output:
 ```
-claude-code-prompt-optimizer@1.2.0
-├── @anthropic-ai/sdk@0.36.0
+claude-code-prompt-optimizer@2.0.0
+├── @anthropic-ai/claude-agent-sdk@0.2.45
 └── tsx@4.19.0
 ```
 
@@ -48,7 +69,35 @@ claude-code-prompt-optimizer@1.2.0
 
 Choose **one** of the following options:
 
-#### Option A: API Key (For API Credit Users)
+#### Option A: OAuth Token (For Claude Pro/MAX Subscribers)
+
+This is the **recommended** method for Claude Pro/MAX subscribers.
+
+**Get your token:**
+```bash
+claude auth token
+```
+
+**Quick Test (Current Session Only):**
+```bash
+export ANTHROPIC_OAUTH_TOKEN="your-oauth-token"
+```
+
+**Permanent (Add to Shell Profile):**
+
+For **zsh** (default on macOS):
+```bash
+echo 'export ANTHROPIC_OAUTH_TOKEN="your-oauth-token"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+For **bash**:
+```bash
+echo 'export ANTHROPIC_OAUTH_TOKEN="your-oauth-token"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### Option B: API Key (For API Credit Users)
 
 **Quick Test (Current Session Only):**
 ```bash
@@ -74,9 +123,9 @@ Verify it's set:
 echo $ANTHROPIC_API_KEY | head -c 20  # Should show first 20 chars
 ```
 
-#### Option B: OAuth (For Claude MAX Subscribers)
+#### Option C: Stored OAuth (Already Logged In)
 
-No API key needed! The optimizer will automatically use your Claude MAX subscription via the CLI.
+No env vars needed! If you're logged into Claude Code, the Agent SDK uses your stored credentials automatically.
 
 Just verify you're logged in:
 ```bash
@@ -87,9 +136,7 @@ claude --version
 claude
 ```
 
-If Claude starts without auth errors, you're good to go.
-
-**Note:** If you have both an API key and Claude MAX, the optimizer tries API key first and falls back to OAuth if it fails.
+**Auth priority:** `ANTHROPIC_OAUTH_TOKEN` > `ANTHROPIC_API_KEY` > stored OAuth from `claude login`.
 
 ### Step 4: Configure Claude Code Hook
 
@@ -180,7 +227,7 @@ Simply add `<optimize>` to any prompt:
 
 The optimizer will:
 1. Detect the `<optimize>` tag
-2. Send your prompt to Claude (via API or CLI)
+2. Send your prompt to Claude via the Agent SDK
 3. Return an enhanced, structured version
 4. Execute the optimized prompt
 
@@ -216,17 +263,6 @@ export DEBUG=true
 tail -f /tmp/claude-code-hook-debug.log
 ```
 
-### Force CLI Mode (Skip API Key)
-
-To always use OAuth/CLI mode even if API key is set:
-
-```bash
-# Temporarily unset API key
-unset ANTHROPIC_API_KEY
-```
-
-Or remove it from your shell profile.
-
 ### Custom Installation Paths
 
 If you prefer a different location:
@@ -260,38 +296,17 @@ ls -la src/hooks/optimize-prompt.sh
 # Should show: -rwxr-xr-x (with x for execute)
 ```
 
-### API Key Issues
+### Auth Issues
 
-**Error:** "ANTHROPIC_API_KEY environment variable not set"
+**Error:** Auth-related failures
 
-This is fine if you're using OAuth mode. If you want API mode:
+Check which auth is active:
 ```bash
-# Check if key is set
-echo $ANTHROPIC_API_KEY
-
-# If empty, set it:
-export ANTHROPIC_API_KEY="your-key-here"
+echo "OAuth token: ${ANTHROPIC_OAUTH_TOKEN:+set}"
+echo "API key: ${ANTHROPIC_API_KEY:+set}"
 ```
 
-**Error:** "Unauthorized" or "insufficient credits"
-
-- If using API key: verify you have Opus access and credits
-- The optimizer will automatically fall back to CLI/OAuth mode
-
-### CLI/OAuth Mode Issues
-
-**Error:** "Claude CLI not found"
-
-Install Claude Code CLI:
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-**Error:** CLI mode timing out
-
-- Ensure you're logged into Claude Code
-- Check your internet connection
-- Try running `claude --print "test"` directly
+If neither is set, ensure `claude login` has been run successfully.
 
 ### Node.js Issues
 
@@ -350,7 +365,7 @@ Run through this checklist to ensure everything works:
 
 - [ ] Node.js 18+ installed (`node --version`)
 - [ ] Repository cloned and dependencies installed
-- [ ] Authentication configured (API key OR logged into Claude Code)
+- [ ] Authentication configured (OAuth token, API key, or `claude login`)
 - [ ] Claude Code settings.json configured with correct path
 - [ ] Hook script has execute permissions
 - [ ] Test command runs successfully
@@ -373,10 +388,6 @@ Run through this checklist to ensure everything works:
    export DEBUG=true
    # Now all optimizations will be logged
    ```
-
-4. **Choose your auth mode:**
-   - API key: Faster (2-5s), uses your credits
-   - OAuth/CLI: Slower (5-15s), uses Claude MAX subscription
 
 ## Getting Help
 

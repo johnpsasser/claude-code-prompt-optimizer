@@ -24,30 +24,53 @@ Basically, it does the prompt engineering for you.
 - Claude Code CLI installed
 - Node.js 18+
 - **One of the following:**
-  - Anthropic API key with Opus access, OR
-  - Claude MAX subscription (uses OAuth automatically)
+  - `ANTHROPIC_OAUTH_TOKEN` (Claude Pro/MAX subscribers)
+  - `ANTHROPIC_API_KEY` (API credit users)
+  - Stored OAuth from `claude login`
 
-## Authentication Modes
+## Quick Install
 
-The optimizer supports two authentication methods:
+```bash
+git clone https://github.com/johnpsasser/claude-code-prompt-optimizer.git
+cd claude-code-prompt-optimizer
+npm run install-hook
+```
 
-### Mode 1: API Key (Direct API Access)
-Uses the Anthropic SDK directly with your API key. Best for users with API credits.
+The installer handles dependencies, auth setup, hook configuration, and verification.
+
+## Authentication
+
+The optimizer checks for credentials in this order:
+
+| Priority | Method | Variable | Best For |
+|----------|--------|----------|----------|
+| 1 | OAuth token | `ANTHROPIC_OAUTH_TOKEN` | Claude Pro/MAX subscribers |
+| 2 | API key | `ANTHROPIC_API_KEY` | API credit users |
+| 3 | Stored OAuth | *(none — uses `claude login`)* | Already logged in |
+
+If `ANTHROPIC_OAUTH_TOKEN` is set, the API key is ignored. If neither env var is set, the Agent SDK falls back to stored OAuth credentials from `claude login`.
+
+### Setting Up OAuth Token
+
+```bash
+# Get your token
+claude auth token
+
+# Add to shell profile
+export ANTHROPIC_OAUTH_TOKEN="your-oauth-token"
+```
+
+### Setting Up API Key
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-api03-..."
 ```
 
-### Mode 2: OAuth (Claude MAX Subscription)
-Uses the Claude Code CLI with your OAuth token. Best for Claude MAX subscribers who want to use their subscription instead of API credits.
+## Manual Setup
 
-No additional setup required - if you're logged into Claude Code, it will use your OAuth token automatically when no API key is set.
+If you prefer to configure things yourself instead of using `npm run install-hook`:
 
-**Priority:** If both are available, API key mode is tried first. If it fails (e.g., insufficient credits), the optimizer falls back to CLI/OAuth mode.
-
-## Setup
-
-Clone and install:
+### 1. Install Dependencies
 
 ```bash
 git clone https://github.com/johnpsasser/claude-code-prompt-optimizer.git
@@ -55,21 +78,11 @@ cd claude-code-prompt-optimizer
 npm install
 ```
 
-### For API Key Users
+### 2. Configure Auth
 
-Add your API key to your shell profile:
+Set one of the environment variables above in your shell profile.
 
-```bash
-export ANTHROPIC_API_KEY="your-api-key-here"
-```
-
-### For Claude MAX Users
-
-No additional setup needed. Just ensure:
-1. Claude Code CLI is installed (`claude --version`)
-2. You're logged in (`claude` should start without auth errors)
-
-### Configure the Hook
+### 3. Configure the Hook
 
 Add the hook to `~/.claude/settings.json`:
 
@@ -88,6 +101,12 @@ Add the hook to `~/.claude/settings.json`:
     ]
   }
 }
+```
+
+### 4. Make Hook Executable
+
+```bash
+chmod +x src/hooks/optimize-prompt.sh
 ```
 
 Test it:
@@ -120,7 +139,8 @@ You get a structured plan with profiling steps, bottleneck identification, prior
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key (optional if using OAuth) | - |
+| `ANTHROPIC_OAUTH_TOKEN` | OAuth token for Claude Pro/MAX | - |
+| `ANTHROPIC_API_KEY` | Anthropic API key (used if no OAuth token) | - |
 | `DEBUG` | Enable debug logging | `false` |
 
 Debug logs go to `/tmp/claude-code-hook-debug.log`.
@@ -130,8 +150,10 @@ Debug logs go to `/tmp/claude-code-hook-debug.log`.
 ```
 claude-code-prompt-optimizer/
 ├── src/hooks/
-│   ├── optimize-prompt.ts    # Core optimization logic
+│   ├── optimize-prompt.ts    # Core optimization logic (Agent SDK)
 │   └── optimize-prompt.sh    # Shell wrapper
+├── scripts/
+│   └── install.js            # Automated installer
 ├── examples/                  # Usage examples
 ├── docs/                      # Additional documentation
 └── QUICKSTART.md             # Installation guide
@@ -140,14 +162,10 @@ claude-code-prompt-optimizer/
 ## How It Works
 
 1. Hook watches for `<optimize>` in your input
-2. Sends your prompt to Claude with a 10,000 token thinking budget
+2. Sends your prompt to Claude via the Agent SDK with a custom system prompt
 3. Returns the expanded prompt back to Claude Code
 
-Authentication flow:
-- If `ANTHROPIC_API_KEY` is set, uses Anthropic SDK (Opus 4.6 with extended thinking)
-- If API fails or no key, falls back to Claude CLI (uses OAuth from Claude MAX)
-
-Takes about 2-5 seconds with API key, 5-15 seconds with CLI mode.
+The optimizer uses the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) which handles authentication automatically — OAuth tokens, API keys, and stored credentials all work seamlessly.
 
 ## Troubleshooting
 
@@ -156,15 +174,10 @@ Takes about 2-5 seconds with API key, 5-15 seconds with CLI mode.
 - Run `chmod +x src/hooks/optimize-prompt.sh`
 - Enable debug mode and check the logs
 
-**API errors:**
-- Make sure `ANTHROPIC_API_KEY` is exported (if using API mode)
-- Verify you have Opus access
-- Check rate limits
-
-**CLI mode not working:**
-- Ensure Claude Code CLI is installed: `claude --version`
-- Make sure you're logged in: run `claude` and check for auth errors
-- The CLI must be at `~/.claude/local/claude` or in PATH
+**Auth errors:**
+- Check that `ANTHROPIC_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` is exported
+- If using stored OAuth, verify `claude login` works
+- Run with `DEBUG=true` to see which auth method is active
 
 **Missing deps:**
 - Run `npm install`
@@ -174,13 +187,13 @@ Takes about 2-5 seconds with API key, 5-15 seconds with CLI mode.
 
 ```bash
 # Run directly
-npx tsx src/hooks/optimize-prompt.ts < test-input.json
+npx tsx src/hooks/optimize-prompt.ts < examples/test-input.json
 
 # Run with debug output
-DEBUG=true bash src/hooks/optimize-prompt.sh < test-input.json
+DEBUG=true bash src/hooks/optimize-prompt.sh < examples/test-input.json
 
-# Compile
-npx tsc
+# Automated install
+npm run install-hook
 ```
 
 ## Contributing
