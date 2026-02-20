@@ -31,36 +31,40 @@ Transform the prompt to enable maximum reasoning depth. Make it comprehensive, s
 
 Return ONLY the optimized prompt text, nothing else. Do not add preamble like "Here is the optimized prompt:" or any other commentary.`;
 
+/** Write JSON to stdout and wait for it to flush before exiting. */
+function writeAndExit(json: string): Promise<never> {
+  return new Promise((_, reject) => {
+    process.stdout.write(json + '\n', (err) => {
+      if (err) reject(err);
+      process.exit(0);
+    });
+  });
+}
+
 /**
- * Resolve auth environment for the Agent SDK subprocess.
+ * Build a clean environment for the Agent SDK subprocess.
  *
- * When running as a hook inside Claude Code (CLAUDECODE is set), stored OAuth
- * from `claude login` is guaranteed to work — strip the API key since it may
- * be stale or invalid. For standalone usage, keep the API key for non-MAX users.
+ * Forces OAuth auth by stripping ALL API key sources so the bundled CLI
+ * falls through to stored OAuth credentials from `claude login`.
  *
- * Priority:
- *   1. CLAUDE_CODE_OAUTH_TOKEN → use OAuth, strip API key
- *   2. Inside Claude Code hook → strip API key, use stored OAuth
- *   3. ANTHROPIC_API_KEY (standalone only) → pass through
- *   4. Neither → Agent SDK falls back to stored OAuth from `claude login`
+ * Returns a new env object (does not mutate process.env).
  */
-function resolveAuth(): void {
-  // Detect if we're running inside a Claude Code session before clearing the flag
-  const insideClaudeCode = !!process.env.CLAUDECODE;
+function buildCleanEnv(): Record<string, string | undefined> {
+  const env = { ...process.env };
 
   // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
-  delete process.env.CLAUDECODE;
+  delete env.CLAUDECODE;
 
-  // Strip API key when OAuth should be used instead:
-  // - Explicit OAuth token set, OR
-  // - Running as a hook inside Claude Code (stored OAuth is available)
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN || insideClaudeCode) {
-    delete process.env.ANTHROPIC_API_KEY;
-  }
+  // Force OAuth: nuke every possible API key vector so the CLI subprocess
+  // cannot find a key from env, file descriptor, or parent-injected vars.
+  env.ANTHROPIC_API_KEY = '';
+  delete env.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR;
+
+  return env;
 }
 
 async function optimizePrompt(originalPrompt: string): Promise<string> {
-  resolveAuth();
+  const env = buildCleanEnv();
 
   const q = query({
     prompt: `Original prompt to optimize:\n${originalPrompt}`,
@@ -70,6 +74,11 @@ async function optimizePrompt(originalPrompt: string): Promise<string> {
       maxTurns: 1,
       allowedTools: [],
       permissionMode: 'bypassPermissions',
+      settingSources: [],
+      env,
+      stderr: (data: string) => {
+        console.error('[sdk]', data.trim());
+      },
     },
   });
 
@@ -77,12 +86,17 @@ async function optimizePrompt(originalPrompt: string): Promise<string> {
   try {
     for await (const msg of q) {
       if (msg.type === 'result') {
-        result = msg.result;
+        if ('result' in msg && msg.subtype === 'success') {
+          result = msg.result;
+        } else {
+          const errors = 'errors' in msg ? (msg as any).errors : [];
+          throw new Error(`Agent SDK returned error: ${errors.join(', ') || msg.subtype}`);
+        }
       }
     }
-  } catch {
-    // If we already got a result, use it even if the process exited uncleanly
-    if (!result) throw new Error('Agent SDK query failed before returning a result');
+  } catch (e) {
+    // If we already got a successful result, use it even if the process exited uncleanly
+    if (!result) throw e instanceof Error ? e : new Error('Agent SDK query failed before returning a result');
   }
 
   return result.trim() || originalPrompt;
@@ -97,9 +111,8 @@ function stripOptimizeTag(prompt: string): string {
 }
 
 async function main() {
+  let inputData = '';
   try {
-    let inputData = '';
-
     for await (const chunk of process.stdin) {
       inputData += chunk;
     }
@@ -107,15 +120,13 @@ async function main() {
     const hookInput: HookInput = JSON.parse(inputData);
 
     if (!shouldOptimize(hookInput.prompt)) {
-      console.error('Optimization skipped - <optimize> tag not found');
       const output: HookOutput = {
         hookSpecificOutput: {
           hookEventName: 'UserPromptSubmit',
           additionalContext: hookInput.prompt,
         },
       };
-      console.log(JSON.stringify(output));
-      process.exit(0);
+      await writeAndExit(JSON.stringify(output));
     }
 
     const cleanedPrompt = stripOptimizeTag(hookInput.prompt);
@@ -148,15 +159,23 @@ ${optimizedPrompt}`;
       },
     };
 
-    console.log(JSON.stringify(output));
-    process.exit(0);
+    await writeAndExit(JSON.stringify(output));
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        reason: `Hook execution failed: ${error instanceof Error ? error.message : String(error)}`,
-      })
-    );
-    process.exit(0);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[prompt-optimizer] ERROR: ${errMsg}`);
+
+    // Extract original prompt from input if possible
+    let originalPrompt = '';
+    try { originalPrompt = JSON.parse(inputData).prompt?.replace(/<\/?optimize\/?>/gi, '').trim() ?? ''; } catch {}
+
+    // Output valid hook JSON so the user sees something went wrong
+    const output: HookOutput = {
+      hookSpecificOutput: {
+        hookEventName: 'UserPromptSubmit',
+        additionalContext: `[prompt-optimizer] Optimization failed: ${errMsg}${originalPrompt ? `\n\nOriginal prompt (unmodified):\n${originalPrompt}` : ''}`,
+      },
+    };
+    await writeAndExit(JSON.stringify(output));
   }
 }
 
