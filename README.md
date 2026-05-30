@@ -50,6 +50,14 @@ The Agent SDK checks for credentials in this order:
 
 If `CLAUDE_CODE_OAUTH_TOKEN` is set, the API key is ignored. If neither env var is set, the Agent SDK falls back to stored OAuth credentials from `claude login`.
 
+Auth resolution is adaptive and can be forced with `OPTIMIZER_AUTH`:
+
+| `OPTIMIZER_AUTH` | Behavior |
+|------------------|----------|
+| `auto` *(default)* | An explicit `CLAUDE_CODE_OAUTH_TOKEN` wins. Inside a Claude Code session with no token, the (often invalid) parent-injected API key is stripped so the CLI uses your stored `claude login`. Outside Claude Code, a real `ANTHROPIC_API_KEY` is honored. |
+| `oauth` | Always strip API keys and use OAuth / stored login. |
+| `apikey` | Always keep `ANTHROPIC_API_KEY` (for pure API-credit users). |
+
 ### Setting Up OAuth Token
 
 ```bash
@@ -141,29 +149,50 @@ You get a structured plan with profiling steps, bottleneck identification, prior
 |----------|-------------|---------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token for Claude Pro/MAX (optional if logged in) | - |
 | `ANTHROPIC_API_KEY` | Anthropic API key (used if no OAuth token) | - |
+| `OPTIMIZER_AUTH` | Auth strategy: `auto`, `oauth`, or `apikey` | `auto` |
+| `OPTIMIZER_MODEL` | Override the optimization model | from config |
+| `OPTIMIZER_FALLBACK_MODEL` | Model to retry with if the primary errors | from config |
+| `OPTIMIZER_TIMEOUT_MS` | Abort + fall back to the original prompt after N ms | from config |
 | `DEBUG` | Enable debug logging | `false` |
 
 Debug logs go to `/tmp/claude-code-hook-debug.log`.
+
+### Config file
+
+Model, fallback model, timeout, and the system prompt live in
+`src/hooks/optimizer.config.json` and `src/hooks/system-prompt.md`, so you can
+tune behavior or bump the model without editing TypeScript. Environment
+variables above take precedence over the config file.
+
+```json
+{
+  "model": "claude-opus-4-8",
+  "fallbackModel": "claude-sonnet-4-6",
+  "timeoutMs": 20000,
+  "systemPromptFile": "system-prompt.md"
+}
+```
 
 ## Project Structure
 
 ```
 claude-code-prompt-optimizer/
 ├── src/hooks/
-│   ├── optimize-prompt.ts    # Core optimization logic (Agent SDK)
-│   └── optimize-prompt.sh    # Shell wrapper
+│   ├── optimize-prompt.ts     # Core optimization logic (Agent SDK)
+│   ├── optimize-prompt.sh     # Shell wrapper (fast-path short-circuit)
+│   ├── optimizer.config.json  # Model, fallback, timeout
+│   └── system-prompt.md       # Editable optimization system prompt
 ├── scripts/
-│   └── install.js            # Automated installer
+│   └── install.js             # Automated installer (symlinks into ~/.claude)
 ├── examples/                  # Usage examples
-├── docs/                      # Additional documentation
-└── QUICKSTART.md             # Installation guide
+└── QUICKSTART.md              # Installation guide
 ```
 
 ## How It Works
 
-1. Hook watches for `<optimize>` in your input
-2. Sends your prompt to Claude via the Agent SDK with a custom system prompt
-3. Returns the expanded prompt back to Claude Code
+1. The shell wrapper inspects every prompt and **short-circuits in bash** when there's no `<optimize>` tag — no Node, no SDK load, no added latency on normal prompts
+2. When tagged, it sends your prompt to Claude via the Agent SDK with a custom system prompt, under an overall timeout
+3. Returns the expanded prompt back to Claude Code (falling back to your original prompt on timeout/error)
 
 The optimizer uses the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) which handles authentication automatically — OAuth tokens, API keys, and stored credentials all work seamlessly.
 

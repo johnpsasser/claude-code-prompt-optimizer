@@ -1,6 +1,9 @@
 #!/usr/bin/env tsx
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 interface HookInput {
   session_id: string;
@@ -19,17 +22,31 @@ interface HookOutput {
   };
 }
 
-const OPTIMIZATION_SYSTEM_PROMPT = `You are a prompt optimization specialist for Claude Opus 4.8. Your job is to transform user prompts to maximize the model's advanced reasoning capabilities.
+interface OptimizerConfig {
+  model: string;
+  fallbackModel?: string;
+  timeoutMs: number;
+  systemPrompt: string;
+}
 
-Apply these techniques:
-1. **Structured Context**: Add explicit reasoning frameworks and step-by-step instructions
-2. **Specificity Enhancement**: Rewrite vague requests into detailed, actionable tasks with clear requirements
-3. **Meta-Instructions**: Add Opus 4.8-specific guidance to leverage its extended thinking and planning abilities
-4. **Skip-comments**: Do not optimize or transform text in between double quotes ("example")
+const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
 
-Transform the prompt to enable maximum reasoning depth. Make it comprehensive, structured, and optimized for complex problem-solving.
+/**
+ * Load configuration from optimizer.config.json (next to this file), with
+ * environment-variable overrides. The system prompt lives in its own file so
+ * it can be tuned without touching code or bumping the model in two places.
+ */
+function loadConfig(): OptimizerConfig {
+  const raw = JSON.parse(readFileSync(join(HOOK_DIR, 'optimizer.config.json'), 'utf8'));
+  const systemPrompt = readFileSync(join(HOOK_DIR, raw.systemPromptFile), 'utf8').trim();
 
-Return ONLY the optimized prompt text, nothing else. Do not add preamble like "Here is the optimized prompt:" or any other commentary.`;
+  return {
+    model: process.env.OPTIMIZER_MODEL || raw.model,
+    fallbackModel: process.env.OPTIMIZER_FALLBACK_MODEL || raw.fallbackModel,
+    timeoutMs: Number(process.env.OPTIMIZER_TIMEOUT_MS) || raw.timeoutMs || 20000,
+    systemPrompt,
+  };
+}
 
 /** Write JSON to stdout and wait for it to flush before exiting. */
 function writeAndExit(json: string): Promise<never> {
@@ -44,37 +61,67 @@ function writeAndExit(json: string): Promise<never> {
 /**
  * Build a clean environment for the Agent SDK subprocess.
  *
- * Forces OAuth auth by stripping ALL API key sources so the bundled CLI
- * falls through to stored OAuth credentials from `claude login`.
+ * Auth is adaptive (override with OPTIMIZER_AUTH=oauth|apikey|auto, default auto):
+ *  - oauth   : strip every API-key vector so the CLI uses OAuth/stored login.
+ *  - apikey  : keep ANTHROPIC_API_KEY untouched (pure API-credit users).
+ *  - auto    : an explicit CLAUDE_CODE_OAUTH_TOKEN wins (strip key); inside a
+ *              Claude Code session with no token we strip the (often invalid)
+ *              parent-injected key and fall through to stored `claude login`;
+ *              outside Claude Code we honor a real API key.
  *
  * Returns a new env object (does not mutate process.env).
  */
 function buildCleanEnv(): Record<string, string | undefined> {
   const env = { ...process.env };
 
+  const insideClaudeCode = !!process.env.CLAUDECODE;
+  const hasOAuthToken = !!process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+  const mode = (process.env.OPTIMIZER_AUTH || 'auto').toLowerCase();
+
+  let useApiKey: boolean;
+  if (mode === 'apikey') {
+    useApiKey = true;
+  } else if (mode === 'oauth') {
+    useApiKey = false;
+  } else {
+    // auto
+    if (hasOAuthToken) useApiKey = false; // explicit OAuth token wins
+    else if (insideClaudeCode) useApiKey = false; // strip injected key, use stored login
+    else useApiKey = hasApiKey; // standalone: honor a real key
+  }
+
   // Allow Agent SDK to spawn a claude subprocess inside a Claude Code session
   delete env.CLAUDECODE;
 
-  // Force OAuth: nuke every possible API key vector so the CLI subprocess
-  // cannot find a key from env, file descriptor, or parent-injected vars.
-  env.ANTHROPIC_API_KEY = '';
-  delete env.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR;
+  if (!useApiKey) {
+    // Nuke every possible API key vector so the CLI subprocess cannot find a
+    // key from env, file descriptor, or parent-injected vars.
+    env.ANTHROPIC_API_KEY = '';
+    delete env.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR;
+  }
 
   return env;
 }
 
-async function optimizePrompt(originalPrompt: string): Promise<string> {
-  const env = buildCleanEnv();
-
+/** Run a single optimization attempt against one model, honoring an abort signal. */
+async function runQuery(
+  originalPrompt: string,
+  model: string,
+  systemPrompt: string,
+  env: Record<string, string | undefined>,
+  abortController: AbortController,
+): Promise<string> {
   const q = query({
     prompt: `Original prompt to optimize:\n${originalPrompt}`,
     options: {
-      model: 'claude-opus-4-8',
-      systemPrompt: OPTIMIZATION_SYSTEM_PROMPT,
+      model,
+      systemPrompt,
       maxTurns: 1,
       allowedTools: [],
       permissionMode: 'bypassPermissions',
       settingSources: [],
+      abortController,
       env,
       stderr: (data: string) => {
         console.error('[sdk]', data.trim());
@@ -83,23 +130,53 @@ async function optimizePrompt(originalPrompt: string): Promise<string> {
   });
 
   let result = '';
-  try {
-    for await (const msg of q) {
-      if (msg.type === 'result') {
-        if ('result' in msg && msg.subtype === 'success') {
-          result = msg.result;
-        } else {
-          const errors = 'errors' in msg ? (msg as any).errors : [];
-          throw new Error(`Agent SDK returned error: ${errors.join(', ') || msg.subtype}`);
-        }
+  for await (const msg of q) {
+    if (msg.type === 'result') {
+      if ('result' in msg && msg.subtype === 'success') {
+        result = msg.result;
+      } else {
+        const errors = 'errors' in msg ? (msg as any).errors : [];
+        throw new Error(`Agent SDK returned error: ${errors.join(', ') || msg.subtype}`);
       }
     }
-  } catch (e) {
-    // If we already got a successful result, use it even if the process exited uncleanly
-    if (!result) throw e instanceof Error ? e : new Error('Agent SDK query failed before returning a result');
   }
 
-  return result.trim() || originalPrompt;
+  return result.trim();
+}
+
+/**
+ * Optimize a prompt, with an overall timeout and a model fallback chain.
+ *
+ * A timeout aborts and propagates (caller falls back to the original prompt
+ * rather than blocking the session). A model error (overload, bad model id)
+ * advances to the fallback model before giving up.
+ */
+async function optimizePrompt(originalPrompt: string, config: OptimizerConfig): Promise<string> {
+  const env = buildCleanEnv();
+  const models = [config.model, config.fallbackModel].filter(
+    (m, i, a): m is string => !!m && a.indexOf(m) === i,
+  );
+
+  let lastErr: unknown;
+  for (const model of models) {
+    const abortController = new AbortController();
+    const timer = setTimeout(() => abortController.abort(), config.timeoutMs);
+    try {
+      const result = await runQuery(originalPrompt, model, config.systemPrompt, env, abortController);
+      return result || originalPrompt;
+    } catch (e) {
+      lastErr = e;
+      if (abortController.signal.aborted) {
+        throw new Error(`optimization timed out after ${config.timeoutMs}ms`);
+      }
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[optimizer] model ${model} failed, trying fallback: ${msg}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastErr instanceof Error ? lastErr : new Error('optimization failed for all models');
 }
 
 function shouldOptimize(prompt: string): boolean {
@@ -119,18 +196,16 @@ async function main() {
 
     const hookInput: HookInput = JSON.parse(inputData);
 
+    // Passthrough: emit nothing so the prompt proceeds unchanged. (The shell
+    // wrapper normally short-circuits this case before launching Node; this is
+    // the safety net if the hook is invoked directly.)
     if (!shouldOptimize(hookInput.prompt)) {
-      const output: HookOutput = {
-        hookSpecificOutput: {
-          hookEventName: 'UserPromptSubmit',
-          additionalContext: hookInput.prompt,
-        },
-      };
-      await writeAndExit(JSON.stringify(output));
+      await writeAndExit('');
     }
 
+    const config = loadConfig();
     const cleanedPrompt = stripOptimizeTag(hookInput.prompt);
-    const optimizedPrompt = await optimizePrompt(cleanedPrompt);
+    const optimizedPrompt = await optimizePrompt(cleanedPrompt, config);
 
     console.error('\n------------------------------------------------------------');
     console.error('PROMPT OPTIMIZER - ULTRATHINK MODE ENABLED');

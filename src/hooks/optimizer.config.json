@@ -1,0 +1,6 @@
+{
+  "model": "claude-opus-4-8",
+  "fallbackModel": "claude-sonnet-4-6",
+  "timeoutMs": 20000,
+  "systemPromptFile": "system-prompt.md"
+}

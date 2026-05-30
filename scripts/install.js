@@ -1,15 +1,31 @@
 #!/usr/bin/env node
 
 import { execFileSync, execSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync, chmodSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  chmodSync,
+  mkdirSync,
+  lstatSync,
+  readlinkSync,
+  unlinkSync,
+  renameSync,
+  symlinkSync,
+} from 'fs';
 import { createInterface } from 'readline';
-import { join } from 'path';
+import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
 
 const PROJECT_ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 const HOOK_SCRIPT = join(PROJECT_ROOT, 'src', 'hooks', 'optimize-prompt.sh');
 const CLAUDE_DIR = join(homedir(), '.claude');
 const SETTINGS_FILE = join(CLAUDE_DIR, 'settings.json');
+
+// Single source of truth: ~/.claude/hooks/claude-code-prompt-optimizer is a
+// symlink to this repo, so editing the repo updates the live hook with no copy.
+const INSTALL_LINK = join(CLAUDE_DIR, 'hooks', 'claude-code-prompt-optimizer');
+const LINKED_HOOK_SCRIPT = join(INSTALL_LINK, 'src', 'hooks', 'optimize-prompt.sh');
 
 function ask(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -129,6 +145,38 @@ async function setupAuth(hasClaude) {
   }
 }
 
+// ── Install hook files (symlink) ───────────────────────────────────
+
+function installHookFiles() {
+  log('Linking hook into ~/.claude/hooks...');
+  mkdirSync(dirname(INSTALL_LINK), { recursive: true });
+
+  let existing = null;
+  try {
+    existing = lstatSync(INSTALL_LINK);
+  } catch {
+    // nothing there yet
+  }
+
+  if (existing) {
+    if (existing.isSymbolicLink()) {
+      if (resolve(readlinkSync(INSTALL_LINK)) === resolve(PROJECT_ROOT)) {
+        success('Symlink already points at this repo — single source of truth');
+        return;
+      }
+      unlinkSync(INSTALL_LINK); // stale symlink → replace
+    } else {
+      // A real directory/file from an older copy-based install: back it up.
+      const backup = `${INSTALL_LINK}.bak-${Date.now()}`;
+      renameSync(INSTALL_LINK, backup);
+      warn(`Backed up previous install to ${backup}`);
+    }
+  }
+
+  symlinkSync(PROJECT_ROOT, INSTALL_LINK, 'dir');
+  success(`Symlinked ${INSTALL_LINK} -> ${PROJECT_ROOT}`);
+}
+
 // ── Hook configuration ─────────────────────────────────────────────
 
 function configureHook() {
@@ -150,7 +198,7 @@ function configureHook() {
     hooks: [
       {
         type: 'command',
-        command: HOOK_SCRIPT,
+        command: LINKED_HOOK_SCRIPT,
       },
     ],
   };
@@ -219,6 +267,7 @@ async function main() {
 
   installDeps();
   await setupAuth(hasClaude);
+  installHookFiles();
   configureHook();
   setPermissions();
   verify();
