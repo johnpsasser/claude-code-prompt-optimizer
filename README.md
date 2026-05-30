@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-green)](https://nodejs.org)
-[![Anthropic API](https://img.shields.io/badge/Anthropic-Claude%20Opus%204.6-blue)](https://www.anthropic.com)
+[![Anthropic API](https://img.shields.io/badge/Anthropic-Claude%20Opus%204.8-blue)](https://www.anthropic.com)
 
 A Claude Code hook that transforms simple prompts into detailed, structured instructions. Add `<optimize>` to any prompt and it'll expand your request into something Claude can really sink its teeth into.
 
