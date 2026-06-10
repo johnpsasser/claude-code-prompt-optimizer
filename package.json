@@ -6,6 +6,7 @@
   "main": "src/hooks/optimize-prompt.ts",
   "scripts": {
     "install-hook": "node scripts/install.js",
+    "build": "esbuild src/hooks/optimize-prompt.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/optimize-prompt.mjs",
     "test": "tsx src/hooks/optimize-prompt.ts < examples/test-input.json",
     "test:debug": "DEBUG=true bash src/hooks/optimize-prompt.sh < examples/test-input.json"
   },
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.0.0"
   },
   "engines": {

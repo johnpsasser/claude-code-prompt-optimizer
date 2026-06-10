@@ -223,6 +223,10 @@ DEBUG=true bash src/hooks/optimize-prompt.sh < examples/test-input.json
 
 # Automated install
 npm run install-hook
+
+# Rebuild the dist bundle (REQUIRED after editing src/hooks/*.ts — the hook
+# prefers dist/optimize-prompt.mjs to skip tsx transpile at prompt time)
+npm run build
 ```
 
 ## Contributing
