@@ -24,16 +24,24 @@ if ! printf '%s' "$INPUT" | grep -qi '<optimize>'; then
   exit 0
 fi
 
-# Ensure nvm/node is in PATH (Claude Code spawns hooks without an interactive shell)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+# Ensure node is in PATH; only pay the nvm sourcing cost when it isn't
+# (Claude Code spawns hooks without an interactive shell).
+if ! command -v node >/dev/null 2>&1; then
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+DIST_BUNDLE="$ROOT_DIR/dist/optimize-prompt.mjs"
 TSX_BIN="$ROOT_DIR/node_modules/.bin/tsx"
 
-# Prefer the pinned local tsx (no npx resolution overhead); fall back to npx.
-if [ -x "$TSX_BIN" ]; then
+# Prefer the prebuilt bundle (no TypeScript transpile at hook time — saves
+# seconds of the model's timeout budget); then pinned tsx; then npx as last
+# resort. Rebuild the bundle with `npm run build` after editing the .ts.
+if command -v node >/dev/null 2>&1 && [ -f "$DIST_BUNDLE" ]; then
+  printf '%s' "$INPUT" | node "$DIST_BUNDLE"
+elif [ -x "$TSX_BIN" ]; then
   printf '%s' "$INPUT" | "$TSX_BIN" "$SCRIPT_DIR/optimize-prompt.ts"
 else
   printf '%s' "$INPUT" | npx tsx "$SCRIPT_DIR/optimize-prompt.ts"

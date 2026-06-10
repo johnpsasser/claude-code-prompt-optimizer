@@ -1,6 +1,8 @@
 {
-  "model": "claude-opus-4-8",
-  "fallbackModel": "claude-sonnet-4-6",
-  "timeoutMs": 20000,
+  "model": "claude-sonnet-4-6",
+  "fallbackModel": "claude-haiku-4-5-20251001",
+  "timeoutMs": 45000,
+  "fallbackTimeoutMs": 30000,
+  "maxPromptChars": 12000,
   "systemPromptFile": "system-prompt.md"
 }
